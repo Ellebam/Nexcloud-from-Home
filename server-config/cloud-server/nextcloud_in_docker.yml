@@ -1,0 +1,191 @@
+---
+- name: Setup Nextcloud, NGinx, mariadb and LetsEncrypt as docker containers
+  hosts: <NEXTCLOUD_SERVER>
+  gather_facts: false
+  vars:
+    ansible_port: "{{ security_ssh_port }}"
+  tasks:
+
+    - name: Ensure nextcloud docker directory exists
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ nextcloud_docker_repo_dir }}"
+        - "{{ nextcloud_docker_setup_dir }}"
+
+
+    - name: clone the nextcloud docker repo
+      git:
+        repo: "{{ nextcloud_docker_repo }}"
+        dest: "{{ nextcloud_docker_repo_dir }}"
+
+    - name: Copy the fresh repo to target nextcloud docker setup directory
+      copy:
+        remote_src: true
+        src: "{{ nextcloud_docker_repo_dir }}/"
+        dest: "{{ nextcloud_docker_setup_dir }}"
+
+
+    - name: Ensure VIRTUAL_HOST and LETSENCRYPT_HOST variables are set correctly
+      lineinfile:
+        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+        regexp: "^      - {{ item }}"
+        line: "      - {{ item }}={{ private_domain }}"
+      loop:
+        - VIRTUAL_HOST
+        - LETSENCRYPT_HOST
+
+    - name: Ensure OVERWRITEPROTOCOL variable is set  correctly on app container
+      lineinfile:
+        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+        insertafter: "^      - REDIS_HOST=redis"
+        line: "      - OVERWRITEPROTOCOL=https"
+
+
+    - name: Ensure LETSENCRYPT_EMAIL variable is set correctly
+      lineinfile:
+        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+        regexp: '^      - LETSENCRYPT_EMAIL'
+        line: "      - LETSENCRYPT_EMAIL={{ private_email }}"
+
+    - name: Ensure correct database root password is set
+      lineinfile:
+        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+        regexp: '^      - MYSQL_ROOT_PASSWORD='
+        line: "      - MYSQL_ROOT_PASSWORD={{ mysql_root_password }}"
+
+    - name: Ensure correct nextcloud database password is set
+      lineinfile:
+        path: "{{ nextcloud_docker_setup_dir }}/.examples/docker-compose/with-nginx-proxy/mariadb/fpm/db.env"
+        regexp: '^MYSQL_PASSWORD'
+        line: "MYSQL_PASSWORD={{ nextcloud_db_user_password }}"
+
+    - name: Container for collabora server is configured
+      blockinfile:
+        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+        insertafter: "#      - proxy-tier"
+        block: |2
+            collabora:
+              image: collabora/code
+              restart: always
+              networks:
+                # Just the default network of this docker-compose (no need to declare, exists per default):
+                - default
+                # Outside access through `external` reverse-proxy network:
+                - proxy-tier
+              depends_on:
+                # NOT the reverse proxy, but nginx webserver for nextcloud-fpm image:
+                - web
+              cap_add:
+              - MKNOD
+              environment:
+                - username=admin
+                - password="{{ nextcloud_collabora_admin_password }}"
+                # Domain the service should be accessed from:
+                - domain={{ private_domain }}
+                #
+                - VIRTUAL_HOST=collabora.{{ private_domain }}
+               
+                - LETSENCRYPT_HOST=collabora.{{ private_domain }}
+                - LETSENCRYPT_EMAIL="{{ private_email }}"
+                #
+                # Extra parameters to Collabora, see also
+                # https://www.collaboraoffice.com/code/nginx-reverse-proxy/:
+                # SSL terminates at the proxy
+                - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+
+ 
+#    - name: Directories for persistent data of all containers are created
+#      file:
+#        path: "{{ nextcloud_docker_persistent_volume_dir_path }}/{{ item }}"
+#        state: directory
+#        mode: '1777'
+#      with_items:
+#        - db
+#        - nextcloud
+#        - certs
+#        - acme
+#        - vhost.d
+#        - html
+#
+#    - name: Ensure correct paths to directories for persistent volumes are set
+#      lineinfile:
+#        path: "{{ nextcloud_docker_setup_dir }}{{ nextcloud_docker_compose_file_path }}"
+#        regexp: "^  {{ item }}:"
+#        line: "  {{ item }}: \"{{ nextcloud_docker_persistent_volume_dir_path }}{{ item }}\""
+#      with_items:
+#        - db
+#        - nextcloud
+#        - certs
+#        - acme
+#        - vhost.d
+#        - html
+#
+    - name: Tear down pre-existing containers
+      docker_compose:
+        project_src: "{{ nextcloud_docker_setup_dir }}/.examples/docker-compose/with-nginx-proxy/mariadb/fpm/"
+        state: absent
+
+    - name: Create and start nextcloud container services
+      docker_compose:
+        project_src: "{{ nextcloud_docker_setup_dir }}/.examples/docker-compose/with-nginx-proxy/mariadb/fpm/"
+      register: output
+
+    
+
+    - name: debug docker compose up
+      debug:
+        var: "{{ output }}"
+
+    - name: Register config.php file 
+      stat:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+      register: phpconf
+
+    - name: Set correct overwrite cli url for nextcloud https
+      lineinfile:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+        regexp: '^.*overwrite.cli.url'
+        line: "  'overwrite.cli.url' => 'https://<PRIVATE_DOMAIN>',"
+      when: phpconf.stat.exists
+
+    - name: Set correct overwrite protocol for nextcloud https
+      lineinfile:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+        insertafter:  '^.*overwrite.cli.url'
+        line: "  'overwriteprotocol' => 'https',"
+        state: present
+        create: true
+      when: phpconf.stat.exists
+
+    - name: Force ssl for connections
+      lineinfile:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+        insertafter:  '^.*overwriteprotocol'
+        line: "  'forcessl' => true,"
+        state: present
+        create: true
+      when: phpconf.stat.exists
+
+    - name: set correct overwrite protocl for host
+      lineinfile:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+        insertafter:  '^.*forcessl'
+        line: "  'overwritehost' => '<PRIVATE_DOMAIN>',"
+        state: present
+        create: true
+      when: phpconf.stat.exists
+
+
+    - name: Force ssl for subdomains
+      lineinfile:
+        path: "/var/lib/docker/volumes/fpm_nextcloud/_data/config/config.php"
+        insertafter:  '^.*forcessl'
+        line: "  'forceSSLforSubdomains' => true,"
+        state: present
+        create: true
+      when: phpconf.stat.exists
+
+        
+    - import_tasks: backup_nextcloud_data.yaml

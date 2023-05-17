@@ -1,0 +1,49 @@
+---
+
+- name: Setup NGinx reverse proxy
+  hosts: all
+  remote_user: root
+  gather_facts: false
+  tasks:
+  
+    - name: Set up working directory
+      file:
+        path: /root/reverse_proxy
+        state: directory
+
+
+    - name: Download dependency files
+      get_url:
+        url: "{{ nginx_proxy_files_download_url }}{{ item }}"
+        dest: "{{ nginx_proxy_workdir }}/{{ item }}"
+      loop:
+        - "{{ nginx_proxy_max_size_file }}"
+        - "{{ nginx_proxy_env_file }}"
+        - "{{ nginx_proxy_docker_compose_file }}"
+
+    - name: copy example ENV file
+      copy:
+        remote_src: true
+        src: "{{ nginx_proxy_workdir }}/{{ nginx_proxy_env_file }}"
+        dest: "{{ nginx_proxy_workdir }}/.env"
+
+    - name: Change the default email of the ENV file
+      replace:
+        path: "{{ nginx_proxy_workdir }}/.env"
+        regexp: 'DEFAULT_EMAIL.*'
+        replace: "DEFAULT_EMAIL={{ default_email }}"
+
+    - name: Create the NGinx Docker Network
+      docker_network:
+        name: net
+
+    - name: Start NGinx reverse proxy container
+      docker_compose:
+        project_src: "{{ nginx_proxy_workdir }}"
+        build: false
+      register: output
+
+    - name: Check docker_compose up output
+      debug:
+        var: output
+      

@@ -1,0 +1,101 @@
+---
+
+- name: Set up Docker and Docker-Compose
+  hosts: <NEXTCLOUD_SERVER>
+  gather_facts: true
+  tasks:
+
+    - name: Ensure all dependency packages are installed
+      package:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg2
+          - software-properties-common
+        state: present
+        update_cache: true
+
+    - name: Download and apply Docker key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: Ensure docker repository is present
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+        state: present
+
+    - name: Ensure Docker packages are installed
+      package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+
+    - name: Install Docker Module for Python
+      pip:
+       name: 
+        - docker
+        - docker-compose
+
+
+    - name: Determine if docker binary exists
+      stat:
+        path: /usr/local/bin/docker-compose
+      register: dockerbinary
+
+
+    - name: Ensure Docker-Compose binary is Downloaded
+      script: download-docker-ce-binary.sh
+      when: dockerbinary.stat.exists == False
+
+
+    - name: Check for daemon.json file for docker
+      stat:
+        path: /etc/docker/daemon.json
+      register: dockerdaemonjson
+
+
+    - name: Ensure daemon.json file for docker is cleared
+      file:
+        path: /etc/docker/daemon.json
+        state: absent
+      when: dockerdaemonjson.stat.exists == true
+
+
+    - name: Ensure ipv6 is enabled
+      template:
+        src: templates/docker-daemon-json.j2 
+        dest: /etc/docker/daemon.json
+        
+
+
+    - name: Move Docker-Compose Binary file to PATH
+      copy:
+        remote_src: true
+        src: /root/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0700'
+      when: dockerbinary.stat.exists == False
+
+    - name: Delete leftover Docker-Compose files
+      shell: /bin/rm -rf /root/docker*
+  
+
+    - name: Ensure Docker group is present
+      group:
+        name: docker
+        state: present
+    
+
+    - name: Add the root account to the docker group
+      user:
+        name: root
+        append: true
+        groups: docker
+
+    - name: The Docker service will be reloaded
+      service:
+        name: docker
+        state: restarted

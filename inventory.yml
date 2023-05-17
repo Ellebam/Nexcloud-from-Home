@@ -1,0 +1,7 @@
+all:
+  hosts:
+    <NEXTCLOUD_SERVER>:
+       ansible_python_interpreter: /usr/bin/python3
+    <PORTMAPPER_SERVER>:
+        ansible_python_interpreter: /usr/bin/python3
+        ansible_port: 22

@@ -1,0 +1,33 @@
+<?php
+$CONFIG = array (
+  'instanceid' => '<INSTANCE_ID',
+  'passwordsalt' => '<PASSWORD_SALT>',
+  'secret' => '<SECRET>',
+  'trusted_domains' =>
+  array (
+    0 => '<NEXTCLOUD_SERVER>',
+    1 => '<PRIVATE_DOMAIN>',
+  ),
+  'default_phone_region' => 'DE',
+  'datadirectory' => '/var/www/nextcloud/data',
+  'dbtype' => 'mysql',
+  'version' => '23.0.0.10',
+  'overwrite.cli.url' => 'http://<NEXTCLOUD_SERVER>',
+  'dbname' => 'nextcloud',
+  'debug' => 'true',
+  'dbhost' => 'localhost',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => 'nextcloud',
+  'dbpassword' => '{{ nextcloud_db_user_password }}',
+  'installed' => true,
+  'filelocking.enabled' => true,
+  'memcache.local' => '\\OC\\Memcache\\APCu',
+  'memcache.locking' => '\\OC\\Memcache\\Redis',
+  'redis' =>
+  array (
+    'host' => '127.0.0.1',
+    'port' => 6379,
+  ),
+);

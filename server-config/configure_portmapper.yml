@@ -1,0 +1,65 @@
+---
+
+- name: Configure portmapping cloud server
+  hosts: <PORTMAPPER_SEVER>
+  remote_user: root
+  gather_facts: false
+  tasks:
+
+  - name: Update and Upgrade all apt packages (portmapper server)
+    apt: 
+      upgrade: dist
+      force_apt_get: true
+
+  - name: Ensure needed Packages are installed
+    package:
+      state: latest
+      name:
+        - 6tunnel
+
+  - name: Check if a reboot is needed for Ubuntu-Server
+    register: reboot_required_file
+    stat:
+      path: /var/run/reboot-required
+      get_md5: false
+
+
+  - name: Allow traffic on selected ports (tcp)
+    ufw:
+      rule: allow
+      port: "{{ item }}"
+      proto: tcp
+    with_items:
+      - 80
+      - 443
+      - 7613
+
+  - name: Set up cronjobs to trigger 6tunnel portmapping
+    cron:
+      name: Custom Portmapping
+      special_time: reboot
+      user: root
+      job: "6tunnel {{ item }} {{ nextcloud_server_ipv6_address }} {{ item }}"
+      cron_file: "nextcloud_portmapping_{{ item }}_tcp"
+    with_items:
+      - 80
+      - 443
+
+  - name: Set up cronjob to trigger 6tunnel portmapping
+    cron:
+      name: Custom SSH Portmapping
+      special_time: reboot
+      user: root
+      job: "6tunnel 7613 {{ nextcloud_server_ipv6_address }} 7613"
+      cron_file: "nextcloud_portmapping_custom_ssh_tcp"
+       
+
+  - name: Reboot Ubuntu-Server
+    reboot:
+      msg: " Reboot initiated by Ansible due to kernel Updates"
+      connect_timeout: 5
+      reboot_timeout: 300
+      pre_reboot_delay: 0
+      post_reboot_delay: 30
+      test_command: uptime
+    when: reboot_required_file.stat.exists

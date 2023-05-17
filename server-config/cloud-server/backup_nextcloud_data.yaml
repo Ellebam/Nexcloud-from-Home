@@ -1,0 +1,35 @@
+---
+
+
+- name: Set up Directory to backup persistent data
+  file:
+    path: "{{ nextcloud_docker_persistent_volume_dir_path }}"
+    state: directory
+
+- name: Create the local backup folders
+  file:
+    path: "{{ backup_dir }}/{{ item }}"
+    state: directory
+  loop:
+    - "backups"
+    - "backups/logs"
+    - "backups/uncompressed"
+
+- name: Ensure backup script is copied to /usr/sbin/
+  template:
+    src: ../templates/ncbackup.sh.j2
+    dest: /usr/sbin/ncbackup.sh
+    mode: 0754
+    owner: cloudbuilder
+    
+
+
+- name: Set up daily cronjob to backup persistent data
+  cron:
+    special_time: daily
+    name: "nextcloud_backup_files_cron"
+    cron_file: nextcloud_backup_files_cron
+    state: present
+    user: cloudbuilder
+    job: "sudo /usr/sbin/ncbackup.sh"
+  

@@ -1,0 +1,16 @@
+---
+- name: configure authorization
+  vars_files:
+    - "../group_vars/all.yml"
+  hosts: localhost
+  remote_user: "{{ control_node_user }}"
+  gather_facts: false
+  become: false
+  
+
+
+  tasks:
+    
+    - name: Create custom remote user
+      script: "deploy_ssh_keys.sh {{ item.name }} {{ item.root_password }} {{ cloudbuilder_user_password }}"
+      loop: "{{ servers }}"

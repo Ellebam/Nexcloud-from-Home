@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+# Output to a logfile
+exec &> {{ backup_dir }}/backups/logs/"$(date '+%Y-%m-%d').txt"
+echo "Starting Nextcloud export..."
+
+# Run a compressed Nextcloud backup 
+/usr/bin/rsync -ltDvr --no-perms {{ nextcloud_docker_persistent_volume_dir_path }} {{ backup_dir }}/backups/uncompressed/
+echo "Export complete"
+echo "Compressing backup..."
+echo "Nextcloud backup successfully compressed to {{ backup_dir }}/backups"
+
+# Compress backed up folder
+tar -zcf {{ backup_dir }}/backups/"$(date '+%Y-%m-%d').tar.gz" {{ backup_dir }}/backups/uncompressed/* 
+echo "Nextcloud backup successfully compressed to {{ backup_dir }}/backups"
+
+# Remove uncompressed backup data
+rm -rf {{ backup_dir }}/backups/uncompressed/*
+echo "Removing backups older than 7 days..."
+
+# Remove backups and logs older than 7 days
+find {{ backup_dir }}/backups -mtime +7 -type f -delete
+find {{ backup_dir }}/backups/logs -mtime +7 -type f -delete
+echo "Complete"
+
+echo "Nextcloud backup completed successfully."

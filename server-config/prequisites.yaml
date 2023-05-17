@@ -1,0 +1,21 @@
+---
+
+
+
+- name: Prepare remote users
+  hosts: localhost
+  gather_facts: False
+  tasks:
+    
+    - name: Check portmapper connectivity
+      command: "ssh -o PasswordAuthentication=no <PORTMAPPER_SERVER_REMOTE_USER>@a<PORTMAPPER_SERVER> ls"
+      register: portmapper_status
+
+
+    - name: Check <NEXTCLOUD_SERVER> connectivity
+      command: "ssh -o PasswordAuthentication=no cloudbuilder@<NEXCLOUD_SERVER> ls"
+      register: grudge_status
+
+    - name: Ensure SSH-Keys are rolled out 
+      script: scripts/deploy_ssh_keys.yml
+      when: "{{ nextcloud_server_status.rc }} != 0 or {{ portmapper_status.rc }} != 0"

@@ -1,0 +1,82 @@
+---
+- name: Set up server basics
+  remote_user: cloudbuilder
+  hosts: <NEXTCLOUD_SERVER>
+  become: true
+  vars:
+    ansible_port: "{{ security_ssh_port }}"
+  gather_facts: false
+  tasks:
+
+
+
+
+  - name: Ensure basic packages  are installed
+    package:
+      name:
+        - net-tools
+        - pip
+        - zip
+        - unzip
+        - acl
+        - firewalld
+      state: latest
+      update_cache: true
+
+  - name: Ensure basic packages are installed (snap)
+    shell:
+      cmd: snap install skopeo --edge --devmode 
+
+  - name: Update and Upgrade all apt packages
+    apt: 
+      upgrade: dist
+      force_apt_get: true
+
+  - name: Check if a reboot is needed for Ubuntu-Server
+    register: reboot_required_file
+    stat:
+      path: /var/run/reboot-required
+      get_md5: false
+
+
+
+  - name: Ensure Suspend and Hibernate are disabled
+    lineinfile:
+      path: /etc/systemd/logind.conf
+      state: present
+      line: "{{ item }}"
+    with_items:
+      - HandleSuspendKey=ignore
+      - HandleHibernateKey=ignore
+      - HandleLidSwitch=ignore
+      - HandleLidSwitchExternalPower=ignore
+      - HandleLidSwitchDocked=ignore
+
+  - name: Open custom Ports
+    firewalld:
+      port: "{{ item }}/tcp"
+      permanent: true
+      state: enabled
+    loop:
+      - 443
+      - 80
+      - 22
+
+  - name: Enable firewalld
+    service:
+      name: firewalld
+      enabled: true
+      state: started
+  
+
+  - name: Reboot Ubuntu-Server
+    reboot:
+      msg: " Reboot initiated by Ansible due to kernel Updates"
+      connect_timeout: 5
+      reboot_timeout: 300
+      pre_reboot_delay: 0
+      post_reboot_delay: 30
+      test_command: uptime
+    when: reboot_required_file.stat.exists
+
+

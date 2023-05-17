@@ -1,0 +1,41 @@
+---
+
+### MYSQL-Server variables ###
+mysql_root_password: <MYSQL_ROOT_PASSWORD>
+nextcloud_db_user_password: <NEXTCLOUD_DB_USER_PASSWORD
+######################################################################################################################################
+
+#### Nextcloud variables ###
+# nextcloud_software_url: https://download.nextcloud.com/server/releases/nextcloud-23.0.0.zip
+# nextcloud_software_bundle: /var/www/nextcloud_software_package.zip
+
+nextcloud_docker_repo: https://github.com/nextcloud/docker.git
+nextcloud_docker_repo_dir: /var/nextcloud-docker-repo
+nextcloud_docker_setup_dir: /var/nextcloud-docker-setup
+nextcloud_docker_compose_file_path: /.examples/docker-compose/with-nginx-proxy/mariadb/fpm/docker-compose.yml
+nextcloud_docker_persistent_volume_dir_path: /var/snap/docker/common/var-lib-docker/volumes/fpm_nextcloud/_data/data/Ellebam/files
+nextcloud_collabora_admin_password: <NEXTCLOUD_COLLABORA_ADMIN_PASSWORD>
+backup_dir: <BACKUP_DIR>
+
+######################################################################################################################################
+
+#### security role variables ####
+
+security_ssh_port: 22
+cloudbuilder_user_password: <CLOUDBUILDER_USER_PASSWORD>
+
+######################################################################################################################################
+
+
+#### Private variables ####
+
+private_domain: <PRIVATE_DOMAIN>
+private_email: <PRIVATE_MAIL>
+control_node_password: <CONTROL_NODE_PASSWORD>
+control_node_user: <CONTROL_NODE_USER>
+######################################################################################################################################
+
+#### Portmapper variables ####
+portmapper_server_ipv6_address: <PORTMAPPER_SERVER_IPV6_ADDRESS>
+
+######################################################################################################################################

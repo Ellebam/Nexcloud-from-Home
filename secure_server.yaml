@@ -1,0 +1,23 @@
+---
+
+- name: Boost SSH security
+  hosts: grudge
+  tasks:
+
+
+    - name: Check if a custom ssh port has been set
+      stat: 
+        path: /home/cloudbuilder/.securo
+      register: custom_security_file
+
+  
+    - name: Secure SSH on server
+      include_role:
+        name: geerlingguy.security
+      when: custom_security_file.exist is not defined
+
+    - name: Set up custom security file to control role administration
+      copy:
+        dest: /home/cloudbuilder/.securo
+        content: "securo"
+        

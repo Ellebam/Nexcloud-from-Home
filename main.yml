@@ -1,0 +1,28 @@
+--- 
+- name: Setup new local nextcloud server
+  hosts: localhost
+  gather_facts: false
+  tasks: 
+    - debug:
+        msg: Playbook start
+    
+    - name: Set up passwordless sudo for cloudbuilder user
+      template:
+        src: templates/sudoers-cloudbuilder.j2
+        dest: /etc/sudoers.d/cloudbuilder
+
+
+
+- import_playbook: secure_server.yaml
+- import_playbook: server-config/configure_server.yml
+- import_playbook: server-config/configure_portmapper.yml
+
+- name: Set up docker, docker-compose and pip on main server
+  hosts: <PNEXTCLOUD_SERVER>
+  roles:
+    - geerlingguy.docker
+    - geerlingguy.pip
+
+
+- import_playbook: server-config/cloud-server/nextcloud_in_docker.yml
+  
